@@ -1,0 +1,27 @@
+The breach is believed to have targeted hundreds of thousands of Exchange users around the world. Microsoft (MSFT) said four vulnerabilities in its software allowed hackers to access servers for the popular email and calendar service, and the company urged customers to immediately update their on-premises systems with software fixes. 
+Even the White House quickly got involved, and now multiple US government agencies also are investigating the attack. 
+Since the hack was reported last Tuesday, "a large number" of additional threat actors "have been rushing to exploit these vulnerabilities" in Exchange servers that have not yet been updated, cybersecurity software firm Symantec said Monday, adding another layer of urgency to the situation and potentially leading to more victims. 
+"This is the real deal," Christopher Krebs, former director of the US Cybersecurity and Infrastructure Security Agency (CISA), tweeted last week, encouraging Exchange server users to quickly respond to the issue. 
+Here's what is known about the hack so far:
+Who is behind it?
+Microsoft attributed the attack to a network of hackers it calls Hafnium, a group the company "assessed to be state sponsored and operating out of China." The "state-sponsored" actor was identified by the Microsoft Threat Intelligence Center based on observed "tactics and procedures," according to the company.
+Though Hafnium is believed to be based in China, it usually strikes using virtual private servers based in the United States, Microsoft said. The company referred to the group as "a highly skilled and sophisticated actor."
+A spokesperson for China's Ministry of Foreign Affairs said that the country "firmly opposes and fights all forms of cyber-attacks and thefts in accordance with the law."
+It's worth noting that the Microsoft Exchange hack is unrelated to the SolarWinds attack that the US government and businesses have been reeling from in recent months, which is suspected to be linked to Russia.
+Who was targeted? 
+As of Saturday, there were an estimated 30,000 affected customers in the United States and 250,000 globally, though those numbers could increase, a US official told CNN. 
+The hack is mainly a concern for business and government customers that use Microsoft's Exchange Server product. Microsoft said it has "no evidence that Hafnium's activities targeted individual consumers or that these exploits impact other Microsoft products." 
+It has said the cloud-based Exchange Online and Microsoft 365 products were not affected.  
+The types of victims so far identified by Microsoft and US government agencies include state and local governments, policy think tanks, academic institutions, infectious disease researchers and businesses such as law firms and defense contractors. Cybersecurity firm FireEye also said last week that it had identified multiple specific victims "including US-based retailers, local governments, a university and an engineering firm." 
+What is the goal of the hack? 
+The attack gave hackers access to the email systems of targeted organizations. Once the Hafnium attackers compromise an organization, Microsoft said, they have been known to steal data such as emails and address books, and to gain access to its user account database.
+One victim, a person working at a Washington think tank who was contacted by the FBI, said attackers had used the unauthorized access to email that person's contacts in a way that looked legitimate. Each message included links asking people to click on them, the person told CNN on Friday.
+Hackers could also install additional malware to facilitate ongoing, long-term access to victims' systems, including files, inboxes and credentials stored there.
+What is being done about it?
+Microsoft last week released emergency security updates for customers using on-premises Exchange Server systems. 
+"We strongly encourage all Exchange Server customers to apply these updates immediately," Microsoft said in a statement. 
+Microsoft released a tool that can help users detect related malicious activity. CISA, the US cybersecurity agency, advised network security officials to look for evidence of intrusions as far back as September 2020, and released an emergency directive on Tuesday requiring federal agencies to either update their servers or to disconnect them. 
+White House press secretary Jen Psaki and national security adviser Jake Sullivan also urged IT administrators nationwide to install the software fixes immediately. 
+The CISA last week warned that if not addressed, the malicious activity could "enable an attacker to gain control of an entire enterprise network." 
+Biden administration is expected to form a task force involving multiple agencies — including the National Security Council, FBI, CISA and others — to address the hack.
+"This has the potential to simultaneously affect organizations that are critical to everyday life in the US," a source familiar with the US government investigation into the attack told CNN. 

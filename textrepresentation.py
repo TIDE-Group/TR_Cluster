@@ -16,6 +16,7 @@ from transformers import BigBirdTokenizer, BigBirdModel, AutoTokenizer
 import torch
 import torch.nn as nn
 import torch.cuda as cuda
+import math
 
 
 class TextRepresentation(object):
@@ -301,7 +302,7 @@ class BigBirdTextRepresentation(object):
         ```
         """
         
-        super(TextRepresentation, self).__init__()
+        super(BigBirdTextRepresentation, self).__init__()
         self.wv_dim = wv_dim
         self.batch_size = batch_size
         self.sparse = sparse
@@ -354,8 +355,12 @@ class BigBirdTextRepresentation(object):
             )
         
         if texts is not None:
-            texts = [' '.join(text) for text in texts]
-            tf_idf = self.tfidf_tsf.fit_transform(texts) # [doc_num, word_cnt]
+            # max_lenth = np.max([len(text) for text in texts])
+            # padding = [['<pad>'] * (max_lenth - len(text)) for text in texts]
+            Texts = [' '.join(text) for text in texts]
+            tokens_pt = self.big_bird_tokenizer(Texts, return_tensors='pt', padding=True)
+
+            tf_idf = self.tfidf_tsf.fit_transform(Texts) # [doc_num, word_cnt]
             wv = self.w2vmodel.wv
             idx = [self.dictionary[i] for i in range(len(self.dictionary))]
             wv = wv[idx] # [word_cnt, wv_dim]
@@ -368,18 +373,18 @@ class BigBirdTextRepresentation(object):
                 wv = sp.csr_matrix(wv)
                 self.wv_tfidf = tf_idf * wv # [doc_num, wv_dim]
 
-            epoch = self.doc_num // self.batch_size + 1
+            epoch = math.ceil(self.doc_num / self.batch_size)
             for i in range(epoch):
                 down = i * self.batch_size
                 up = (i + 1) * self.batch_size if (i + 1) * self.batch_size <= self.doc_num else self.doc_num
-                tokens_pt = self.big_bird_tokenizer(texts[down : up], return_tensors='pt', padding=True)
-                for key in tokens_pt.data.keys():
-                    tokens_pt.data[key] = tokens_pt.data[key].cuda()
+                batch_tokens_pt = tokens_pt.copy()
+                for key in batch_tokens_pt.data.keys():
+                    batch_tokens_pt.data[key] = batch_tokens_pt.data[key][down : up].cuda()
                 
                 with torch.no_grad():
-                    output = self.big_bird_model.forward(**tokens_pt)
+                    output = self.big_bird_model.forward(**batch_tokens_pt)
                     self.big_bird_rp[down : up, :] = output.pooler_output.cpu().numpy()
-                    del output, tokens_pt
+                    del output, batch_tokens_pt
                     cuda.empty_cache()
             
 
@@ -437,7 +442,8 @@ class BigBirdTextRepresentation(object):
             self.w2vmodel.build_vocab(self._texts, update=True)
         
         self.tfidf_tsf.vocabulary = self.dictionary.token2id
-        Texts = [' '.join(text) for text in self._texts]
+        Texts = [' '.join(text) for text in texts]
+        tokens_pt = self.big_bird_tokenizer(Texts, return_tensors='pt', padding=True)
         tf_idf = self.tfidf_tsf.fit_transform(Texts)
         
         self.w2vmodel.train(self._texts, total_examples=self.w2vmodel.corpus_count, epochs=self.w2vmodel.iter)
@@ -458,14 +464,14 @@ class BigBirdTextRepresentation(object):
         for i in range(epoch):
             down = i * self.batch_size
             up = (i + 1) * self.batch_size if (i + 1) * self.batch_size <= self.doc_num else self.doc_num
-            tokens_pt = self.big_bird_tokenizer(Texts[down : up], return_tensors='pt', padding=True)
-            for key in tokens_pt.data.keys():
-                tokens_pt.data[key] = tokens_pt.data[key].cuda()
+            batch_tokens_pt = tokens_pt.copy()
+            for key in batch_tokens_pt.data.keys():
+                batch_tokens_pt.data[key] = batch_tokens_pt.data[key][down : up].cuda()
                 
             with torch.no_grad():
-                output = self.big_bird_model.forward(**tokens_pt)
+                output = self.big_bird_model.forward(**batch_tokens_pt)
                 big_bird_rp[down : up, :] = output.pooler_output.cpu().numpy()
-                del output, tokens_pt
+                del output, batch_tokens_pt
                 cuda.empty_cache()
         self.big_bird_rp = np.concatenate([self.big_bird_rp, big_bird_rp], aixs=0)
         

@@ -6,6 +6,9 @@ import warnings
 import time
 from gensim import corpora
 from singlepass import ClusterUnit
+import typesentry
+tc1 = typesentry.Config()
+Isinstance = tc1.is_type
 warnings.filterwarnings('ignore')
 
 class HAC(object):
@@ -26,13 +29,13 @@ class HAC(object):
         self.clust_theta = clust_theta
         self.feature = cluster_list[0].feature
 
-        if isinstance(weight, float):
+        if Isinstance(weight, float):
             if self.feature == 2:
                 self.weight = np.array([weight, 1 - weight]) # 1, 2项权重
             else:
                 raise RuntimeError("目前不支持三个以上的特征矩阵进行HAC")
 
-        elif isinstance(weight, List[float]) or isinstance(weight, np.ndarray):
+        elif Isinstance(weight, List[float]) or Isinstance(weight, np.ndarray):
             assert np.sum(weight) == 1
             self.weight = np.array(weight)
             assert self.weight.ndim == 1
@@ -41,13 +44,13 @@ class HAC(object):
             raise TypeError("weight 参数类型错误")
         
         """
-        if isinstance(cluster_list[0], ClusterUnit):
+        if Isinstance(cluster_list[0], ClusterUnit):
             t1 = time.time()
             self.doc_matrix = np.array([cluster.center for cluster in cluster_list]) # [num_doc, vec_dim]
             self.doc_hac()
             t2 = time.time()
             self.cluster_time = t2 - t1
-        elif isinstance(cluster_list[0], ClusterUnitWVLDA):
+        elif Isinstance(cluster_list[0], ClusterUnitWVLDA):
             t1 = time.time()
             self.wv_matrix = np.array([cluster.center_wv for cluster in cluster_list]) # [num_doc, wv_dim]
             self.lda_matrix = np.array([cluster.center_lda for cluster in cluster_list]) # [num_doc, lda_n_components]
@@ -107,8 +110,8 @@ class HAC(object):
                 doc_matrix = np.array([cluster.center for cluster in self.cluster_list])
     """
     def _hac(self):
-        feature_matrixs = [np.concatenate([cluster.centers[i][None, :] for i in range(cluster.feature)], axis=0) \
-            for cluster in self.cluster_list] #[feature, [n_topic, feature_dim]]
+        feature_matrixs = [np.concatenate([cluster.centers[i][None, :] for cluster in self.cluster_list], axis=0) \
+            for i in range(self.feature)] #[feature, [n_topic, feature_dim]]
         
         while(True):
             sims = [cosine_similarity(X=feature_matrix) for feature_matrix in feature_matrixs] # [feature, [n_topic, n_topic]]
@@ -120,7 +123,7 @@ class HAC(object):
             sim[row, col] = np.array([0] * sim.shape[0])
 
             max_sim = np.max(sim)
-            if max_sim < self.theta: #小于阈值, 聚类结束
+            if max_sim < self.clust_theta: #小于阈值, 聚类结束
                 break
             
             else:
@@ -132,8 +135,8 @@ class HAC(object):
                 new_cluster = ClusterUnit.union_cluster(cluster_1=cluster_1, cluster_2=cluster_2) #合并两个簇
                 self.cluster_list.append(new_cluster)
 
-                feature_matrixs = [np.concatenate([cluster.centers[i][None, :] for i in range(cluster.feature)], axis=0) \
-                    for cluster in self.cluster_list] #[feature, [n_topic, feature_dim]]
+                feature_matrixs = [np.concatenate([cluster.centers[i][None, :] for cluster in self.cluster_list], axis=0) \
+                    for i in range(self.feature)] #[feature, [n_topic, feature_dim]]
 
 
     

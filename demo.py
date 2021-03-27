@@ -1,6 +1,6 @@
 from time import time
 from textrepresentation import TextRepresentation, BigBirdTextRepresentation
-from singlepass import ClusterUnit, ClusterUnitWVLDA, SinglePassCluster, TimedSinglePassCluster
+from singlepass import ClusterUnit, SinglePassCluster, TimedSinglePassCluster
 from hac import HAC
 import os
 import numpy as np
@@ -14,7 +14,7 @@ for doc_name in doc_names:
 
 # tr = TextRepresentation(texts, wv_dim=256, lda_n_components=256)
 
-bbtr = BigBirdTextRepresentation(texts, wv_dim=256, batch_size=4)
+bbtr = BigBirdTextRepresentation(texts, wv_dim=256, batch_size=10)
 
 # wv_tfidf = tr.wv_tfidf
 # lda_doc_topic = tr.lda_doc_topic
@@ -49,6 +49,18 @@ bbtr = BigBirdTextRepresentation(texts, wv_dim=256, batch_size=4)
 
 # sp_cluster.print_result()
 
+sp_cluster = SinglePassCluster(
+    clust_thresh=0.98,
+    text_representation=bbtr,
+    weight=[0.5, 0.5]
+)
+
+sp_cluster.print_result()
+
+hac_cluster = HAC(sp_cluster.cluster_list, clust_theta=0.99, weight = [0.5, 0.5])
+hac_cluster.print_result()
+
+
 # hac_cluster = HAC(sp_cluster.cluster_list, theta=0.8, gamma=0.5)
 
 # hac_cluster.print_result()
@@ -62,7 +74,17 @@ bbtr = BigBirdTextRepresentation(texts, wv_dim=256, batch_size=4)
 #     time_slices=np.arange(102).reshape(6, 17).tolist()
 # )
 
-# time_sp_cluster.print_result()
+time_sp_cluster = TimedSinglePassCluster(
+    clust_thresh=0.97,
+    weight=[0.5, 0.5],
+    text_representation=bbtr,
+    time_slices=np.arange(102).reshape(6, 17).tolist()
+)
+
+time_sp_cluster.print_result()
+
+hac_cluster_ = HAC(time_sp_cluster.cluster_list, clust_theta=0.99, weight = [0.5, 0.5])
+hac_cluster_.print_result()
 
 # hac_cluster_ = HAC(time_sp_cluster.cluster_list, theta=0.8, gamma=0.5)
 

@@ -17,6 +17,9 @@ import torch
 import torch.nn as nn
 import torch.cuda as cuda
 import math
+import typesentry
+tc1 = typesentry.Config()
+Isinstance = tc1.is_type
 
 
 class TextRepresentation(object):

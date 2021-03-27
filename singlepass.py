@@ -5,6 +5,9 @@ import scipy.sparse as sp
 import warnings
 import time
 from gensim import corpora
+import typesentry
+tc1 = typesentry.Config()
+Isinstance = tc1.is_type
 warnings.filterwarnings('ignore')
 
 """
@@ -237,9 +240,9 @@ class SinglePassCluster:
         cluster_list: List[ClusterUnit] = None    
     ):
         self.clust_thresh = clust_thresh
-        if isinstance(weight, float):
+        if Isinstance(weight, float):
             self.weight = np.array([weight, 1 - weight]) # 1, 2项权重
-        elif isinstance(weight, List[float]) or isinstance(weight, np.ndarray):
+        elif Isinstance(weight, List[float]) or Isinstance(weight, np.ndarray):
             assert np.sum(weight) == 1
             self.weight = np.array(weight)
         else:
@@ -250,13 +253,13 @@ class SinglePassCluster:
         else:
             self.cluster_list = []  # 聚类后簇的列表
         
-        if isinstance(text_representation, TextRepresentation):
+        if Isinstance(text_representation, TextRepresentation):
             assert text_representation.wv_tfidf.shape[0] == text_representation.lda_doc_topic.shape[0]
             self.doc_num = text_representation.wv_tfidf.shape[0]
             self.feature_matrixs = [text_representation.wv_tfidf, text_representation.lda_doc_topic] # 重要性降序
             self.feature = 2 # 特征矩阵数目
             
-        elif isinstance(text_representation, BigBirdTextRepresentation):
+        elif Isinstance(text_representation, BigBirdTextRepresentation):
             assert text_representation.big_bird_rp.shape[0] == text_representation.wv_tfidf.shape[0]
             self.doc_num = text_representation.wv_tfidf.shape[0]
             self.feature_matrixs = [text_representation.big_bird_rp, text_representation.wv_tfidf] # 重要性降序
@@ -330,6 +333,7 @@ class SinglePassCluster:
         if self.cluster_list == []: # 原有簇空, 第0篇doc生成一个初始簇
             init_node = ClusterUnit(self.feature)
             init_node.add_node(node_id=0, feature_vecs=[feature_matrix[0, :] for feature_matrix in self.feature_matrixs])
+            self.cluster_list.append(init_node)
             start = 1
         else: # 原有簇不空, 直接把所有doc往原有簇中添加或者新建簇
             start = 0
@@ -337,7 +341,7 @@ class SinglePassCluster:
         for idx in range(start, self.doc_num):
             sim = np.zeros(len(self.cluster_list))
             for i in range(len(self.cluster_list)):
-                sims = [cos_sim_l(self.cluster_list[i][j], self.feature_matrixs[j][idx, :]) for j in range(self.feature)]
+                sims = [cos_sim_l(self.cluster_list[i].centers[j], self.feature_matrixs[j][idx, :]) for j in range(self.feature)]
                 sim[i] = np.vdot(np.array(sims), self.weight)
             max_sim = np.max(sim)
             max_sim_id = np.argmax(sim)
@@ -395,9 +399,9 @@ class TimedSinglePassCluster:
         time_slices: Union[List[np.ndarray], List[list]] = None
     ):
         self.clust_thresh = clust_thresh
-        if isinstance(weight, float):
+        if Isinstance(weight, float):
             self.weight = np.array([weight, 1 - weight]) # 1, 2项权重
-        elif isinstance(weight, List[float]) or isinstance(weight, np.ndarray):
+        elif Isinstance(weight, List[float]) or Isinstance(weight, np.ndarray):
             assert np.sum(weight) == 1
             self.weight = np.array(weight)
         else:
@@ -438,13 +442,13 @@ class TimedSinglePassCluster:
         else:
             raise RuntimeError("vector_mat不可与wv_tfidf、lda_doc_topic共存")
         """
-        if isinstance(text_representation, TextRepresentation):
+        if Isinstance(text_representation, TextRepresentation):
             assert text_representation.wv_tfidf.shape[0] == text_representation.lda_doc_topic.shape[0]
             self.doc_num = text_representation.wv_tfidf.shape[0]
             self.feature_matrixs = [text_representation.wv_tfidf, text_representation.lda_doc_topic] # 重要性降序
             self.feature = 2 # 特征矩阵数目
             
-        elif isinstance(text_representation, BigBirdTextRepresentation):
+        elif Isinstance(text_representation, BigBirdTextRepresentation):
             assert text_representation.big_bird_rp.shape[0] == text_representation.big_bird_rp.shape[0]
             self.doc_num = text_representation.wv_tfidf.shape[0]
             self.feature_matrixs = [text_representation.big_bird_rp, text_representation.wv_tfidf] # 重要性降序
@@ -548,7 +552,7 @@ class TimedSinglePassCluster:
 
                 sim = np.zeros(len(self.cluster_list))
                 for i in range(len(self.cluster_list)):
-                    sims = [cos_sim_l(self.cluster_list[i][j], self.feature_matrixs[j][idx, :]) for j in range(self.feature)]
+                    sims = [cos_sim_l(self.cluster_list[i].centers[j], self.feature_matrixs[j][idx, :]) for j in range(self.feature)]
 
                     sim[i] = np.vdot(np.array(sims), self.weight)
 

@@ -134,29 +134,33 @@ class ClusterUnit2F:
 class ClusterUnit:
     """
     簇类
-    cls: int, 特征矩阵数
-    """
-    def __init__(self, cls:int=2):
-        self.cls = cls
+    feature: int, 特征矩阵数
+
+    attribute:
+    --------
+    centers: List[np.ndarray(feature_dim) * feature] 
+    """ 
+    def __init__(self, feature:int=2):
+        self.feature = feature
         self.node_list = []
-        self.centers = [None for i in range(cls)]
+        self.centers = [None for i in range(feature)]
     
     def __len__(self):
         return len(self.node_list)
 
     def add_node(self, node_id:int, feature_vecs:List[np.ndarray]):
-        assert self.cls == len(feature_vecs)
+        assert self.feature == len(feature_vecs)
         self.node_list.append(node_id)
         try:
-            for i in range(self.cls):
+            for i in range(self.feature):
                 self.centers[i] = ((len(self.node_list) - 1) * self.centers[i] + feature_vecs[i]) / len(self.node_list)
         except TypeError:
             self.centers = feature_vecs
 
     def remove_node(self, node_id:int, feature_vecs:List[np.ndarray]):
-        assert self.cls == len(feature_vecs)
+        assert self.feature == len(feature_vecs)
         try:
-            for i in range(self.cls):
+            for i in range(self.feature):
                 self.centers[i] = (len(self.node_list) * self.centers[i] - feature_vecs[i]) / (len(self.node_list) - 1)
             self.node_list.remove(node_id)
         except ValueError:
@@ -177,11 +181,11 @@ class ClusterUnit:
         added_cluster
     ): #将本簇完全添加到另一个簇
         try:
-            for i in range(added_cluster.cls):
+            for i in range(added_cluster.feature):
                 added_cluster.centers[i] = (len(added_cluster.node_list) * added_cluster.centers[i] + len(self.node_list) * self.centers[i]) / \
                     (len(added_cluster.node_list) + len(self.node_list))
         except TypeError:
-            for i in range(added_cluster.cls):
+            for i in range(added_cluster.feature):
                 added_cluster.centers[i] = self.centers[i]
         # for node_id in self.node_list:
         #     added_cluster.node_list.append(node_id)
@@ -191,11 +195,11 @@ class ClusterUnit:
     def union_cluster(cluster_1, cluster_2): #静态方法，合并两个簇
         assert len(cluster_1) > 0
         assert len(cluster_2) > 0
-        assert cluster_1.cls == cluster_2.cls
-        union = ClusterUnit(cluster_1.cls)
+        assert cluster_1.feature == cluster_2.feature
+        union = ClusterUnit(cluster_1.feature)
         union.node_list = cluster_1.node_list
         union.node_list.extend(cluster_2.node_list)
-        for i in range(union.cls):
+        for i in range(union.feature):
             union.centers[i] = (len(cluster_1) * cluster_1.centers[i] + len(cluster_2) * cluster_2.centers[i]) / (len(cluster_1) + len(cluster_2))
 
         return union

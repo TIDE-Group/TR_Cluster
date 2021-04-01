@@ -349,14 +349,14 @@ class SinglePassCluster:
             if max_sim > self.clust_thresh: #相似度高于阈值, 纳入原有类
                 self.cluster_list[max_sim_id].add_node(
                     node_id=idx,
-                    feature_vecs=[feature_matrix[max_sim_id, :] for feature_matrix in self.feature_matrixs]
+                    feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
                 )
                 
             else: #新建一个簇
                 new_clust = ClusterUnit(self.feature)
                 new_clust.add_node(
                     node_id=idx,
-                    feature_vecs=[feature_matrix[max_sim_id, :] for feature_matrix in self.feature_matrixs]
+                    feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
                 )
                 self.cluster_list.append(new_clust)
                 del new_clust
@@ -553,7 +553,6 @@ class TimedSinglePassCluster:
                 sim = np.zeros(len(self.cluster_list))
                 for i in range(len(self.cluster_list)):
                     sims = [cos_sim_l(self.cluster_list[i].centers[j], self.feature_matrixs[j][idx, :]) for j in range(self.feature)]
-
                     sim[i] = np.vdot(np.array(sims), self.weight)
 
                 max_sim = np.max(sim)
@@ -562,14 +561,14 @@ class TimedSinglePassCluster:
                 if max_sim > self.clust_thresh: #相似度高于阈值, 纳入原有类
                     self.cluster_list[max_sim_id].add_node(
                         node_id=idx,
-                        feature_vecs=[feature_matrix[max_sim_id, :] for feature_matrix in self.feature_matrixs]
+                        feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
                     )
                 
                 else:#新建一个簇
                     new_clust = ClusterUnit(self.feature)
                     new_clust.add_node(
                         node_id=idx,
-                        feature_vecs=[feature_matrix[max_sim_id, :] for feature_matrix in self.feature_matrixs]
+                        feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
                     )
                     self.cluster_list.append(new_clust)
                     del new_clust

@@ -16,10 +16,14 @@ from transformers import BigBirdTokenizer, BigBirdModel, AutoTokenizer
 import torch
 import torch.nn as nn
 import torch.cuda as cuda
+import random
 import math
 import typesentry
+import os
 tc1 = typesentry.Config()
 Isinstance = tc1.is_type
+
+from tqdm import tqdm
 
 
 class TextRepresentation(object):
@@ -59,13 +63,13 @@ class TextRepresentation(object):
         stopwords: list = None,
         wv_dim: int = 100,
         lda_n_components: int = 100,
-        wv_iter: int = 5,
+        wv_iter: int = 10,
         lda_max_iter: int = 10,
         tfidf_max_df: float = 1.0,
         tfidf_min_df = 1,
         wv_min_count: int = 1,
         jobs: int = 12,
-        random_seed: int = 0,
+        random_seed: int = 1,
         sparse: bool = False
     ):
         """
@@ -98,6 +102,12 @@ class TextRepresentation(object):
         ```
         """
         super(TextRepresentation, self).__init__()
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+        torch.manual_seed(random_seed)
+        cuda.manual_seed(random_seed)
+        os.environ['PYTHONHASHSEED '] = str(random_seed)
+        
         self.wv_dim = wv_dim
         self.lda_n_component = lda_n_components
         self.sparse = sparse
@@ -120,7 +130,8 @@ class TextRepresentation(object):
                 min_count=wv_min_count,
                 iter=wv_iter,
                 sg=1, hs=1,
-                workers=jobs
+                workers=jobs,
+                seed=random_seed
             )
         
         else:
@@ -137,7 +148,8 @@ class TextRepresentation(object):
                 min_count=wv_min_count,
                 iter=wv_iter,
                 sg=1, hs=1,
-                workers=jobs
+                workers=jobs,
+                seed=random_seed
             )
         self.lda_model = LatentDirichletAllocation(
             n_components=lda_n_components,
@@ -269,12 +281,12 @@ class BigBirdTextRepresentation(object):
         stopwords: list = None,
         wv_dim: int = 100,
         batch_size: int = 10,
-        wv_iter: int = 5,
+        wv_iter: int = 10,
         tfidf_max_df: float = 1.0,
         tfidf_min_df = 1,
         wv_min_count: int = 1,
-        jobs: int = 12,
-        random_seed: int = 0,
+        jobs: int = 1,
+        random_seed: int = 1,
         sparse: bool = False
     ):
         """
@@ -306,6 +318,11 @@ class BigBirdTextRepresentation(object):
         """
         
         super(BigBirdTextRepresentation, self).__init__()
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+        torch.manual_seed(random_seed)
+        cuda.manual_seed(random_seed)
+        os.environ['PYTHONHASHSEED '] = str(random_seed)
         self.wv_dim = wv_dim
         self.batch_size = batch_size
         self.sparse = sparse
@@ -337,7 +354,8 @@ class BigBirdTextRepresentation(object):
                 min_count=wv_min_count,
                 iter=wv_iter,
                 sg=1, hs=1,
-                workers=jobs
+                workers=jobs,
+                seed=random_seed
             )
         
         else:
@@ -354,7 +372,8 @@ class BigBirdTextRepresentation(object):
                 min_count=wv_min_count,
                 iter=wv_iter,
                 sg=1, hs=1,
-                workers=jobs
+                workers=jobs,
+                seed=random_seed
             )
         
         if texts is not None:
@@ -377,7 +396,8 @@ class BigBirdTextRepresentation(object):
                 self.wv_tfidf = tf_idf * wv # [doc_num, wv_dim]
 
             epoch = math.ceil(self.doc_num / self.batch_size)
-            for i in range(epoch):
+            # for i in range(epoch):
+            for i in tqdm(range(epoch), total=epoch, desc='BigBird Calculating'):
                 down = i * self.batch_size
                 up = (i + 1) * self.batch_size if (i + 1) * self.batch_size <= self.doc_num else self.doc_num
                 batch_tokens_pt = tokens_pt.copy()
@@ -389,6 +409,8 @@ class BigBirdTextRepresentation(object):
                     self.big_bird_rp[down : up, :] = output.pooler_output.cpu().numpy()
                     del output, batch_tokens_pt
                     cuda.empty_cache()
+
+        pass
             
 
     def _preproceeding(self, texts:list, stopwords:list):

@@ -2,10 +2,11 @@ from typing import List, Union
 import numpy as np
 import scipy.sparse as sp
 from sklearn.metrics.pairwise import cosine_similarity
+from utils import set_iou
 import warnings
 import time
 from gensim import corpora
-from singlepass import ClusterUnit
+from utils import ClusterUnit
 import typesentry
 tc1 = typesentry.Config()
 Isinstance = tc1.is_type
@@ -26,17 +27,17 @@ class HAC(object):
     """
     def __init__(self, cluster_list:List[ClusterUnit], clust_theta:float = 0.9, weight: Union[float, List[float]]= 0.75):
         self.cluster_list = cluster_list
+        self.entities_list = [clust.entities for clust in cluster_list] # [clust_cnt]
         self.clust_theta = clust_theta
         self.feature = cluster_list[0].feature
 
         if Isinstance(weight, float):
-            if self.feature == 2:
-                self.weight = np.array([weight, 1 - weight]) # 1, 2项权重
+            if self.feature == 3:
+                self.weight = np.array([weight, 1 - weight, 0]) # 1, 2, 3项权重
             else:
                 raise RuntimeError("目前不支持三个以上的特征矩阵进行HAC")
 
         elif Isinstance(weight, List[float]) or Isinstance(weight, np.ndarray):
-            assert np.sum(weight) == 1
             self.weight = np.array(weight)
             assert self.weight.ndim == 1
             assert self.feature == (len(self.weight))
@@ -64,7 +65,16 @@ class HAC(object):
         self._hac()
         t2 = time.time()
         self.cluster_time = t2 - t1
-        
+    
+    def calc_iou_matrix(self, entities_list:List[set]):
+        dim = len(entities_list)
+        iou_matrix = np.zeros((dim, dim), dtype=float)
+        for i in range(dim):
+            for j in range(i + 1 , dim): 
+                iou_matrix[i, j] = set_iou(entities_list[i], entities_list[j]) #上三角矩阵, 对角线全0
+        iou_matrix = iou_matrix + iou_matrix.T # 扩充
+        return iou_matrix
+
 
 
     """
@@ -112,20 +122,23 @@ class HAC(object):
     def _hac(self):
         feature_matrixs = [np.concatenate([cluster.centers[i][None, :] for cluster in self.cluster_list], axis=0) \
             for i in range(self.feature)] #[feature, [n_topic, feature_dim]]
+        entities_list = self.entities_list
         
         while(True):
             sims = [cosine_similarity(X=feature_matrix) for feature_matrix in feature_matrixs] # [feature, [n_topic, n_topic]]
+            entities_ious = self.calc_iou_matrix(entities_list) #对角方阵 [n_topic, n_topic], 对角线全0
             sim = np.zeros_like(sims[0]) #对角方阵 [n_topic, n_topic]
             for i in range(self.feature):
                 sim += self.weight[i] * sims[i]
 
             row, col = np.diag_indices_from(sim)
             sim[row, col] = np.array([0] * sim.shape[0])
+            sim += entities_ious
 
             max_sim = np.max(sim)
             if max_sim < self.clust_theta: #小于阈值, 聚类结束
                 break
-            
+ 
             else:
                 idx = np.argmax(sim)
                 row, col = idx // sim.shape[1], idx % sim.shape[1] #最大相似度的两个话题在self.cluster_list中的索引
@@ -137,6 +150,7 @@ class HAC(object):
 
                 feature_matrixs = [np.concatenate([cluster.centers[i][None, :] for cluster in self.cluster_list], axis=0) \
                     for i in range(self.feature)] #[feature, [n_topic, feature_dim]]
+                entities_list = [clust.entities for clust in self.cluster_list]
 
 
     

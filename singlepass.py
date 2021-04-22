@@ -1,10 +1,11 @@
-from typing import List, Union
-from textrepresentation import TextRepresentation, BigBirdTextRepresentation
+from typing import List, Union, Set
+from textrepresentation import TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation
 import numpy as np
 import scipy.sparse as sp
 import warnings
 import time
 from gensim import corpora
+from utils import ClusterUnit
 import typesentry
 tc1 = typesentry.Config()
 Isinstance = tc1.is_type
@@ -134,79 +135,7 @@ class ClusterUnit2F:
         return union
 """
 
-class ClusterUnit:
-    """
-    簇类
-    feature: int, 特征矩阵数
 
-    attribute:
-    --------
-    centers: List[np.ndarray(feature_dim) * feature] 
-    """ 
-    def __init__(self, feature:int=2):
-        self.feature = feature
-        self.node_list = []
-        self.centers = [None for i in range(feature)]
-    
-    def __len__(self):
-        return len(self.node_list)
-
-    def add_node(self, node_id:int, feature_vecs:List[np.ndarray]):
-        assert self.feature == len(feature_vecs)
-        self.node_list.append(node_id)
-        try:
-            for i in range(self.feature):
-                self.centers[i] = ((len(self.node_list) - 1) * self.centers[i] + feature_vecs[i]) / len(self.node_list)
-        except TypeError:
-            self.centers = feature_vecs
-
-    def remove_node(self, node_id:int, feature_vecs:List[np.ndarray]):
-        assert self.feature == len(feature_vecs)
-        try:
-            for i in range(self.feature):
-                self.centers[i] = (len(self.node_list) * self.centers[i] - feature_vecs[i]) / (len(self.node_list) - 1)
-            self.node_list.remove(node_id)
-        except ValueError:
-            raise ValueError("%d 不在这个簇中"%node_id)
-
-    def move_node(self, 
-        node_id:int, feature_vecs:List[np.ndarray], 
-        moved_cluster
-    ): #将本簇的结点移到另一个簇
-        try:
-            self.remove_node(node_id)
-            moved_cluster.add_node(node_id, feature_vecs)
-        except ValueError:
-            raise ValueError("%d 不在这个簇中"%node_id)
-
-    def add_cluster(
-        self,
-        added_cluster
-    ): #将本簇完全添加到另一个簇
-        try:
-            for i in range(added_cluster.feature):
-                added_cluster.centers[i] = (len(added_cluster.node_list) * added_cluster.centers[i] + len(self.node_list) * self.centers[i]) / \
-                    (len(added_cluster.node_list) + len(self.node_list))
-        except TypeError:
-            for i in range(added_cluster.feature):
-                added_cluster.centers[i] = self.centers[i]
-        # for node_id in self.node_list:
-        #     added_cluster.node_list.append(node_id)
-        added_cluster.node_list.extend(self.node_list)
-
-    @staticmethod
-    def union_cluster(cluster_1, cluster_2): #静态方法，合并两个簇
-        assert len(cluster_1) > 0
-        assert len(cluster_2) > 0
-        assert cluster_1.feature == cluster_2.feature
-        union = ClusterUnit(cluster_1.feature)
-        union.node_list = cluster_1.node_list
-        union.node_list.extend(cluster_2.node_list)
-        for i in range(union.feature):
-            union.centers[i] = (len(cluster_1) * cluster_1.centers[i] + len(cluster_2) * cluster_2.centers[i]) / (len(cluster_1) + len(cluster_2))
-
-        return union
-      
 
 def cos_sim(v_a : np.ndarray, v_b : np.ndarray):
     cos = np.vdot(v_a, v_b) / (np.linalg.norm(v_a, 2) * np.linalg(v_b, 2))
@@ -223,7 +152,7 @@ class SinglePassCluster:
     clust_thresh: float, 相似度阈值
     weight: Union[float, List[float]], text_representation中各种表示方法的权重
     cluster_list: List[ClusterUnit], 预定义的聚合簇
-    text_representation: Union[TextRepresentation, BigBirdTextRepresentation], 文本表示的实例
+    text_representation: Union[TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation], 文本表示的实例
     
     弃用:
     --------
@@ -236,14 +165,13 @@ class SinglePassCluster:
         self, 
         clust_thresh: float = 0.9, 
         weight: Union[float, List[float], np.ndarray] = 0.75,
-        text_representation: Union[TextRepresentation, BigBirdTextRepresentation] = None,
+        text_representation: Union[TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation] = None,
         cluster_list: List[ClusterUnit] = None    
     ):
         self.clust_thresh = clust_thresh
         if Isinstance(weight, float):
-            self.weight = np.array([weight, 1 - weight]) # 1, 2项权重
+            self.weight = np.array([weight, 1 - weight], 0) # 1, 2项权重
         elif Isinstance(weight, List[float]) or Isinstance(weight, np.ndarray):
-            assert np.sum(weight) == 1
             self.weight = np.array(weight)
         else:
             raise TypeError("weight 参数类型错误")
@@ -264,9 +192,14 @@ class SinglePassCluster:
             self.doc_num = text_representation.wv_tfidf.shape[0]
             self.feature_matrixs = [text_representation.big_bird_rp, text_representation.wv_tfidf] # 重要性降序
             self.feature = 2 # 特征矩阵数目
+        elif Isinstance(text_representation, BERTTextRepresentation):
+            assert text_representation.bert_rp.shape[0] == text_representation.wv_tfidf.shape[0]
+            self.doc_num = text_representation.wv_tfidf.shape[0]
+            self.feature_matrixs = [text_representation.bert_rp, text_representation.wv_tfidf]
+            self.feature = 2
         else:
             raise TypeError("text_representation 类型错误")
-        
+        self.entities = text_representation.entities
         t1 = time.time()
         self.clustering()
         t2 = time.time()
@@ -332,7 +265,11 @@ class SinglePassCluster:
     def clustering(self):
         if self.cluster_list == []: # 原有簇空, 第0篇doc生成一个初始簇
             init_node = ClusterUnit(self.feature)
-            init_node.add_node(node_id=0, feature_vecs=[feature_matrix[0, :] for feature_matrix in self.feature_matrixs])
+            init_node.add_node(
+                node_id=0, 
+                feature_vecs=[feature_matrix[0, :] for feature_matrix in self.feature_matrixs],
+                entities=self.entities[0]
+            )
             self.cluster_list.append(init_node)
             start = 1
         else: # 原有簇不空, 直接把所有doc往原有簇中添加或者新建簇
@@ -349,14 +286,16 @@ class SinglePassCluster:
             if max_sim > self.clust_thresh: #相似度高于阈值, 纳入原有类
                 self.cluster_list[max_sim_id].add_node(
                     node_id=idx,
-                    feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
+                    feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
+                    entities=self.entities[max_sim_id]
                 )
                 
             else: #新建一个簇
                 new_clust = ClusterUnit(self.feature)
                 new_clust.add_node(
                     node_id=idx,
-                    feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
+                    feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
+                    entities=self.entities[max_sim_id]
                 )
                 self.cluster_list.append(new_clust)
                 del new_clust
@@ -379,8 +318,8 @@ class TimedSinglePassCluster:
     clust_thresh: float, 聚合相似度阈值
     weight: Union[float, List[float]], text_representation中各种表示方法的权重
     cluster_list: List[ClusterUnit], 预定义的聚合簇
-    text_representation: Union[TextRepresentation, BigBirdTextRepresentation], 文本表示的实例
-    time_slices: Union[List[np.ndarray], List[list]] or 2-D np.ndarray, 标明文档的时间索引切片, 内部也已经按照时间顺序排列完毕, 如[[1, 2], [3, 4]]
+    text_representation: Union[TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation], 文本表示的实例
+    time_slices: Union[List[np.ndarray], List[list]] or 2-D np.ndarray, 标明文档的属于的时间段索引切片, 内部也已经按照时间顺序排列完毕, 如[[1, 2], [3, 4]]
     
     弃用:
     --------
@@ -394,15 +333,14 @@ class TimedSinglePassCluster:
         self, 
         clust_thresh: float = 0.9, 
         weight: Union[float, List[float]]=0.75, 
-        text_representation: Union[TextRepresentation, BigBirdTextRepresentation] = None,
+        text_representation: Union[TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation] = None,
         cluster_list: List[ClusterUnit] = None,
         time_slices: Union[List[np.ndarray], List[list]] = None
     ):
         self.clust_thresh = clust_thresh
         if Isinstance(weight, float):
-            self.weight = np.array([weight, 1 - weight]) # 1, 2项权重
+            self.weight = np.array([weight, 1 - weight, 0]) # 1, 2项权重
         elif Isinstance(weight, List[float]) or Isinstance(weight, np.ndarray):
-            assert np.sum(weight) == 1
             self.weight = np.array(weight)
         else:
             raise TypeError("weight 参数类型错误")
@@ -453,9 +391,14 @@ class TimedSinglePassCluster:
             self.doc_num = text_representation.wv_tfidf.shape[0]
             self.feature_matrixs = [text_representation.big_bird_rp, text_representation.wv_tfidf] # 重要性降序
             self.feature = 2 # 特征矩阵数目
+        elif Isinstance(text_representation, BERTTextRepresentation):
+            assert text_representation.bert_rp.shape[0] == text_representation.bert_rp.shape[0]
+            self.doc_num = text_representation.wv_tfidf.shape[0]
+            self.feature_matrixs = [text_representation.bert_rp, text_representation.wv_tfidf] # 重要性降序
+            self.feature = 2 # 特征矩阵数目
         else:
             raise TypeError("text_representation 类型错误")
-
+        self.entities = text_representation.entities
         t1 = time.time()
         self.clustering()
         t2 = time.time()
@@ -535,7 +478,8 @@ class TimedSinglePassCluster:
             init_idx = self.time_slices[0][0]
             init_node.add_node(
                 node_id=init_idx, 
-                feature_vecs=[feature_matrix[init_idx, :] for feature_matrix in self.feature_matrixs]
+                feature_vecs=[feature_matrix[init_idx, :] for feature_matrix in self.feature_matrixs],
+                entities = self.entities[init_idx]
             )
             self.cluster_list.append(init_node)
             init_flag = True
@@ -561,18 +505,21 @@ class TimedSinglePassCluster:
                 if max_sim > self.clust_thresh: #相似度高于阈值, 纳入原有类
                     self.cluster_list[max_sim_id].add_node(
                         node_id=idx,
-                        feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
+                        feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
+                        entities=self.entities[max_sim_id]
                     )
                 
                 else:#新建一个簇
                     new_clust = ClusterUnit(self.feature)
                     new_clust.add_node(
                         node_id=idx,
-                        feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs]
+                        feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
+                        entities=self.entities[max_sim_id]
                     )
                     self.cluster_list.append(new_clust)
                     del new_clust
-
+        # self.cluster_list = [[j for j in len(self.cluster_list) if i in self.cluster_list[j].node_list] for i in range(self.doc_num)]
+        pass
 
 
     def print_result(self):

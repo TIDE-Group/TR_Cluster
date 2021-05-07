@@ -53,6 +53,7 @@ class TextRepresentation(object):
     texts: list[str], 每一个str为一篇文本
     stopwords: list, 包含所有的停用词
     labels: List[int], 每篇文章对应的label, 求结果时每一类的lab可能不同
+    ids: Union[List[int], np.ndarray], 每篇文章的id
     wv_dim: int, 词向量的维度
     lda_n_compontents: int, LDA模型的主题数目
     wv_iter: Word2Vec模型迭代次数, 默认为5
@@ -77,11 +78,14 @@ class TextRepresentation(object):
     dictionary: class: gensim.corpora.Dictionary, 经过预处理后的文本词典
 
     entities: List[Set], 每篇文章的命名实体集合
+        
+    ids: Union[List[int], np.ndarray], 每篇文章的id
     ```
     """
     def __init__(
         self,
         texts: list = None,
+        ids: Union[List[int], np.ndarray] = None,
         stopwords: list = None,
         labels: List[int] = None,
         wv_dim: int = 100,
@@ -142,6 +146,7 @@ class TextRepresentation(object):
         self.lda_n_component = lda_n_components
         self.sparse = sparse
         self._labels = labels
+        self.ids = ids
         if stopwords is None:
             stopwords = get_stop_words('en')
         
@@ -225,7 +230,7 @@ class TextRepresentation(object):
         return [(ent.text, ent.type) for sent in result.sentences for ent in sent.ents]
 
     def build_entity_tfidf(self, doc_entities:List[list]):
-        doc_entities_str = [[re.sub(r'\\', '',str(entity)) for entity in entities] for entities in doc_entities]
+        doc_entities_str = [[re.sub(r'\\', '', str(entity)) for entity in entities] for entities in doc_entities]
         vocab = corpora.Dictionary(doc_entities_str)
 
         doc_entities_encode = [[str(vocab.token2id[entity]) for entity in entities] for entities in doc_entities_str]
@@ -341,6 +346,7 @@ class BigBirdTextRepresentation(object):
     --------
     ```
     texts: list[str], 每一个str为一篇文本
+    ids: Union[List[int], np.ndarray], 每篇文本对应的ID
     stopwords: list, 包含所有的停用词
     labels: List[int], 每篇文章对应的label, 求结果时每一类的lab可能不同
     wv_dim: int, 词向量的维度
@@ -369,6 +375,7 @@ class BigBirdTextRepresentation(object):
     def __init__(
         self,
         texts: list = None,
+        ids: Union[List[int], np.ndarray] = None,
         stopwords: list = None,
         labels:List[int] = None,
         wv_dim: int = 100,
@@ -425,6 +432,7 @@ class BigBirdTextRepresentation(object):
         self.wv_dim = wv_dim
         self.batch_size = batch_size
         self._labels = labels
+        self.ids = ids
         self.sparse = sparse
         self.big_bird_tokenizer = BigBirdTokenizer.from_pretrained("google/bigbird-roberta-base")
 
@@ -664,6 +672,7 @@ class BERTTextRepresentation(object):
     --------
     ```
     texts: list[str], 每一个str为一篇文本
+    ids: Union[List[int], np.ndarray], 每篇文章的ID
     stopwords: list, 包含所有的停用词
     labels: List[int], 每篇文章对应的label, 求结果时每一类的lab可能不同
     wv_dim: int, 词向量的维度
@@ -692,6 +701,7 @@ class BERTTextRepresentation(object):
     def __init__(
         self,
         texts: list = None,
+        ids: Union[List[int], np.ndarray] = None,
         stopwords: list = None,
         labels:List[int] = None,
         wv_dim: int = 100,
@@ -748,6 +758,7 @@ class BERTTextRepresentation(object):
         self.wv_dim = wv_dim
         self.batch_size = batch_size
         self._labels = labels
+        self.ids = ids
         self.sparse = sparse
         self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 

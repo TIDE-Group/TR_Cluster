@@ -3,11 +3,15 @@ from collections import Counter
 from textrepresentation import TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation
 import numpy as np
 import scipy.sparse as sp
+import pandas as pd
 import warnings
 import time
 from gensim import corpora
 from sklearn.metrics import accuracy_score, precision_score, recall_score,  f1_score  # 计算f1
 import typesentry
+from torch.utils.data.dataset import Dataset
+import torch
+from torch import cuda
 tc1 = typesentry.Config()
 Isinstance = tc1.is_type
 warnings.filterwarnings('ignore')
@@ -91,7 +95,29 @@ class ClusterUnit(object):
             union.centers[i] = (len(cluster_1) * cluster_1.centers[i] + len(cluster_2) * cluster_2.centers[i]) / (len(cluster_1) + len(cluster_2))
 
         return union
-      
+
+
+class ClassifierDataSet(Dataset):
+    def __init__(self, texts:List[str], labels:Union[List[int], np.ndarray]):
+        super(ClassifierDataSet, self).__init__()
+        assert len(texts) == len(labels), "文本和标签数量不对应"
+        self.texts = texts
+        self.labels = labels
+    
+    def __len__(self):
+        return len(self.texts)
+    
+    def __getitem__(self, index):
+        return self.texts[index], torch.LongTensor([self.labels[index]])
+    
+def classifier_collate_fn(data):
+    texts, labels = map(list, zip(*data))
+    labels = torch.cat(labels, dim=0)
+    if cuda.is_available():
+        labels = labels.cuda()
+
+    return texts, labels
+
 def calMacro(predict_results, true_results):
     acc = accuracy_score(true_results.astype('int'), predict_results.astype('int'))
     Pmacro = precision_score(true_results.astype('int'), predict_results.astype('int'), average='macro')
@@ -125,7 +151,14 @@ def eval_clustering_results(labels:Union[List[int], np.ndarray], clusting_result
         return acc, Pmacro, Rmacro, f1, pred_labels, labels
 
 def set_iou(set_a:set, set_b:set):
-    return len(set_a.intersection(set_b)) / len(set_a.union(set_b))
+    if len(set_a) == 0 or len(set_b) == 0:
+        return 0.0
+    else:
+        return len(set_a.intersection(set_b)) / len(set_a.union(set_b))
+
+def convertid2index(df:pd.DataFrame, cluster_unit_ids:Union[np.ndarray, List[int]]):
+    
+    return np.concatenate([df[df['id'] == id].index.values for id in cluster_unit_ids])
     
 
 

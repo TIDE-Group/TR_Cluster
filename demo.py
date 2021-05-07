@@ -7,25 +7,32 @@ import os
 import numpy as np
 import pandas as pd
 import pickle
+import utils
 
 # doc_names = os.listdir('./doc/')
 # texts = []
 # for doc_name in doc_names:
 #     with open('./doc/' + doc_name, 'r', encoding='utf-8') as f:
 #         texts.append(f.read())
-df = pd.read_excel('./cnn_final.xlsx')
-df = df[df['content'].notna()]
+df = pd.read_excel('./cnn_labeled.xlsx')
+df = df[df['value'].notna()]
 df = df[df['label'].notna()]
 df.index = range(len(df))
 # print(df.columns)
-texts = df['content'].tolist()
+texts = df['value'].tolist()
 # labels = df[df['content'].notna()]['id'].tolist()
 # week_set = df['date'].dt.week.unique()
 # week_slices = [df[df['date'].dt.week == week]['id'].tolist() for week in week_set]
 # week_set = df['week'].unique()
 # week_slices = [df[df['week'] == week].index.tolist() for week in week_set]
-time_indices = [df[df['date'] == date].index.tolist() for date in df['date'].sort_values(ascending=True).unique()]
+# time_indices = [df[df['date'] == date].index.tolist() for date in df['date'].sort_values(ascending=True).unique()]
+period_set = df['date_calendar'].apply(lambda x: eval(x)[:2]).sort_values(ascending=True).unique()
+df['period'] = df['date_calendar'].apply(lambda x: eval(x)[:2])
+time_indices = [df[df['period'] == period].index.tolist() for period in period_set]
 labels = df['label'].astype('int').tolist()
+print(len(set(labels)))
+ids = df['id'].astype('int').tolist()
+
 
 # if os.path.exists('./pkls/tr.pkl'):
 #     with open('./pkls/tr.pkl', 'rb') as f:
@@ -39,7 +46,7 @@ if os.path.exists('./pkls/btr.pkl'):
     with open('./pkls/btr.pkl', 'rb') as f:
         btr = pickle.load(f)
 else:
-    btr = BERTTextRepresentation(texts, labels=labels, wv_dim=128, batch_size=10)
+    btr = BERTTextRepresentation(texts, labels=labels, ids=ids, wv_dim=128, batch_size=10)
     with open('./pkls/btr.pkl', 'wb') as f:
         pickle.dump(btr, f)
     
@@ -123,9 +130,13 @@ hac_cluster_ = HAC(time_sp_cluster.cluster_list, clust_theta=1.75, weight = np.a
 hac_cluster_.print_result()
 
 clusting_results = [cluster.node_list for cluster in hac_cluster_.cluster_list]
-acc, Pmacro, Rmacro, f1, pred_labels, labels = eval_clustering_results(btr._labels, clusting_results, ave=False)
+clusting_results_index = [utils.convertid2index(df, result) for result in clusting_results]
+acc, Pmacro, Rmacro, f1, pred_labels, labels = eval_clustering_results(btr._labels, clusting_results_index, ave=False)
 print('acc: %.2f'%acc)
-print('F1:', f1)
+print('F1:\n', f1)
+acc, Pmacro, Rmacro, f1, pred_labels, labels = eval_clustering_results(btr._labels, clusting_results_index, ave=True)
+
+print('macroF1: {:.2f}%'.format(f1 * 100))
 
 # print('acc: {:.2f}, P: {:.2f}, R: {:.2f}, F1: {:.2f}'.format(acc * 100 , Pmacro * 100 , Rmacro * 100 , f1 * 100 ))
 # label_ = [[i for i in range(len(tr._labels)) if tr._labels[i] == j] for j in df['label'].unique()]

@@ -153,6 +153,7 @@ class SinglePassCluster:
     weight: Union[float, List[float]], text_representation中各种表示方法的权重
     cluster_list: List[ClusterUnit], 预定义的聚合簇
     text_representation: Union[TextRepresentation, BigBirdTextRepresentation, BERTTextRepresentation], 文本表示的实例
+
     
     弃用:
     --------
@@ -200,6 +201,8 @@ class SinglePassCluster:
         else:
             raise TypeError("text_representation 类型错误")
         self.entities = text_representation.entities
+        self.ids = text_representation.ids
+        assert len(self.ids) == self.doc_num
         t1 = time.time()
         self.clustering()
         t2 = time.time()
@@ -263,10 +266,10 @@ class SinglePassCluster:
     """
 
     def clustering(self):
-        if self.cluster_list == []: # 原有簇空, 第0篇doc生成一个初始簇
+        if self.cluster_list == []: # 原有簇空, 输入的第0篇doc生成一个初始簇
             init_node = ClusterUnit(self.feature)
             init_node.add_node(
-                node_id=0, 
+                node_id=self.ids[0], 
                 feature_vecs=[feature_matrix[0, :] for feature_matrix in self.feature_matrixs],
                 entities=self.entities[0]
             )
@@ -277,7 +280,7 @@ class SinglePassCluster:
 
         for idx in range(start, self.doc_num):
             sim = np.zeros(len(self.cluster_list))
-            for i in range(len(self.cluster_list)):
+            for i in range(len(self.cluster_list)): #与现有的簇比较相似度
                 sims = [cos_sim_l(self.cluster_list[i].centers[j], self.feature_matrixs[j][idx, :]) for j in range(self.feature)]
                 sim[i] = np.vdot(np.array(sims), self.weight)
             max_sim = np.max(sim)
@@ -285,7 +288,7 @@ class SinglePassCluster:
 
             if max_sim > self.clust_thresh: #相似度高于阈值, 纳入原有类
                 self.cluster_list[max_sim_id].add_node(
-                    node_id=idx,
+                    node_id=self.ids[idx],
                     feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
                     entities=self.entities[max_sim_id]
                 )
@@ -293,7 +296,7 @@ class SinglePassCluster:
             else: #新建一个簇
                 new_clust = ClusterUnit(self.feature)
                 new_clust.add_node(
-                    node_id=idx,
+                    node_id=self.ids[idx],
                     feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
                     entities=self.entities[max_sim_id]
                 )
@@ -399,6 +402,9 @@ class TimedSinglePassCluster:
         else:
             raise TypeError("text_representation 类型错误")
         self.entities = text_representation.entities
+        self.ids = text_representation.ids
+        assert len(self.ids) == self.doc_num
+
         t1 = time.time()
         self.clustering()
         t2 = time.time()
@@ -475,9 +481,9 @@ class TimedSinglePassCluster:
     def clustering(self):
         if self.cluster_list == []: #无预定义簇, 建立初始簇
             init_node = ClusterUnit(self.feature)
-            init_idx = self.time_slices[0][0]
+            init_idx = self.time_slices[0][0] #输入顺序中第0个时间切片的第0篇文章
             init_node.add_node(
-                node_id=init_idx, 
+                node_id=self.ids[init_idx], 
                 feature_vecs=[feature_matrix[init_idx, :] for feature_matrix in self.feature_matrixs],
                 entities = self.entities[init_idx]
             )
@@ -504,7 +510,7 @@ class TimedSinglePassCluster:
 
                 if max_sim > self.clust_thresh: #相似度高于阈值, 纳入原有类
                     self.cluster_list[max_sim_id].add_node(
-                        node_id=idx,
+                        node_id=self.ids[idx],
                         feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
                         entities=self.entities[max_sim_id]
                     )
@@ -512,7 +518,7 @@ class TimedSinglePassCluster:
                 else:#新建一个簇
                     new_clust = ClusterUnit(self.feature)
                     new_clust.add_node(
-                        node_id=idx,
+                        node_id=self.ids[idx],
                         feature_vecs=[feature_matrix[idx, :] for feature_matrix in self.feature_matrixs],
                         entities=self.entities[max_sim_id]
                     )

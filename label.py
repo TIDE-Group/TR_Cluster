@@ -317,7 +317,7 @@ def handle_label_str(x:pd.Series):
     elif id in [
         621, 622
     ]:
-        return '美国限制中国共产党成员的旅游限制'
+        return '美国对中国共产党成员的旅游限制'
     elif id in [
         60, 61, 64, 65, 69, 70, 73, 74, 75, 77, 79, 
         80, 81, 85, 86, 87, 91, 96, 99, 100, 102, 104, 
@@ -424,7 +424,7 @@ def handle_label_str(x:pd.Series):
     elif id in [
         593, 598
     ]:
-        return '中国国有企业陷入困境, 这可能印象全球经济复苏'
+        return '中国国有企业陷入困境, 这可能影响全球经济复苏'
     elif id in [
         151, 170, 292, 339, 384, 424, 459, 485, 517, 520, 682, 710, 792, 845
     ]:
@@ -456,7 +456,7 @@ def handle_label_str(x:pd.Series):
     elif id in [452, 481]:
         return '中国矿工被困'
     elif id in [469, 505]:
-        return '腾讯Baidu吉利联手开发智能车'
+        return '腾讯百度吉利联手开发智能车'
     elif id in [510, 511]:
         return '美国麻将游戏抹除中国文化元素'
     elif id in [403, 444]:

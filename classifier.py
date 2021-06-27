@@ -34,18 +34,20 @@ class ClassifierModel(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Dropout(dropout),
-            nn.Linear(768, 512),
-            nn.Linear(512, cls)
+            nn.Linear(768, 128),
+            nn.Dropout(dropout),
+            nn.Linear(128, cls)
         )
 
     def forward(self, texts:List[str], log_softmax:bool=True):
-        tokens = self.tokenizer(text=texts, return_tensors='pt', padding=True)
-        for key in tokens.data.keys():
-            tokens.data[key] = tokens.data[key][:, :512]
-        if cuda.is_available():
+        with torch.no_grad():
+            tokens = self.tokenizer(text=texts, return_tensors='pt', padding=True)
             for key in tokens.data.keys():
-                tokens.data[key] = tokens.data[key].cuda()
-        feature = self.featurizer.forward(**tokens).pooler_output
+                tokens.data[key] = tokens.data[key][:, :512]
+            if cuda.is_available():
+                for key in tokens.data.keys():
+                    tokens.data[key] = tokens.data[key].cuda()
+            feature = self.featurizer.forward(**tokens).pooler_output
         outputs = self.fc.forward(feature)
         if log_softmax:
             outputs = F.log_softmax(outputs, dim=-1)
@@ -132,7 +134,7 @@ class ClassifierTrainer(object):
         self.model.load_state_dict(torch.load(path))
 
 if __name__ == "__main__":
-    batch_size = 2
+    batch_size = 32
     epoch_cnt = 150
     dropout = 0.5
     lr = 1e-3
